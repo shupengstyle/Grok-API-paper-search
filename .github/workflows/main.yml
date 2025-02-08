@@ -1,4 +1,4 @@
-name: PubMed Literature Summary to Email2
+name: PubMed Literature Summary to Email
 
 on:
   schedule:
@@ -25,13 +25,10 @@ jobs:
         id: cache-processed-pmids
         uses: actions/cache@v3
         with:
-          path: processed_pmids.json  # 要缓存的文件
-          key: processed-pmids-${{ hashFiles('requirements.txt') }}  # 缓存的键，使用 commit SHA 作为唯一标识
-          restore-keys: |
-            processed-pmids- # 匹配任何以前的缓存
+          path: processed_pmids.json  # 要缓存的文件，保持不变
+          key: processed-pmids-v2-${{ github.sha }}  # 缓存的键，可以更新版本号
 
       - name: Fetch and summarize PubMed articles
-        id: fetch_and_summarize
         env:
           EMAIL_ADDRESS: ${{ secrets.EMAIL_ADDRESS }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
@@ -46,11 +43,33 @@ jobs:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         run: python WX_send Email.py
 
+      - name: Commit changes to processed_pmids.json
+        run: |
+          git config --local user.email "actions@github.com"
+          git config --local user.name "GitHub Actions"
+          git add processed_pmids.json
+          git commit -m "Update processed PMIDs" || echo "No changes to commit"
+        continue-on-error: true  # 如果没有更改，不要让提交失败
+
+      - name: Push changes to repository
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ github.ref }}
+          force: false
+
       - name: Send email
-        if: success() #  只有前面的步骤成功才运行
+        if: success()
         env:
           EMAIL_ADDRESS: ${{ secrets.EMAIL_ADDRESS }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
           EMAIL_SMTP_SERVER: ${{ secrets.EMAIL_SMTP_SERVER }}
           EMAIL_SMTP_PORT: ${{ secrets.EMAIL_SMTP_PORT }}
+          SEARCH_QUERY: ${{ secrets.SEARCH_QUERY }}
+          PUBMED_API_KEY: ${{ secrets.PUBMED_API_KEY }}
+          MAX_RESULTS: ${{ secrets.MAX_RESULTS }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          PROCESSED_PMIDS_FILE: processed_pmids.json  #  重要：指定文件名，不需要secrets
+          PROCESSED_PMIDS_EXPIRATION_DAYS: ${{ secrets.PROCESSED_PMIDS_EXPIRATION_DAYS }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         run: python WX_send Email.py --send
