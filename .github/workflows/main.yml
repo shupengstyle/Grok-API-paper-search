@@ -41,7 +41,7 @@ jobs:
           PROCESSED_PMIDS_FILE: processed_pmids.json  #  重要：指定文件名，不需要secrets
           PROCESSED_PMIDS_EXPIRATION_DAYS: ${{ secrets.PROCESSED_PMIDS_EXPIRATION_DAYS }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-        run: python WX_send Email.py
+        run: python WX_send_Email.py
 
       - name: Commit changes to processed_pmids.json
         run: |
@@ -72,4 +72,4 @@ jobs:
           PROCESSED_PMIDS_FILE: processed_pmids.json  #  重要：指定文件名，不需要secrets
           PROCESSED_PMIDS_EXPIRATION_DAYS: ${{ secrets.PROCESSED_PMIDS_EXPIRATION_DAYS }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-        run: python WX_send Email.py --send
+        run: python WX_send_Email.py --send
