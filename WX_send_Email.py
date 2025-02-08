@@ -26,13 +26,13 @@ EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 SMTP_SERVER = os.getenv("EMAIL_SMTP_SERVER", "smtp.yeah.net")
 SMTP_PORT = int(os.getenv("EMAIL_SMTP_PORT", 465))
 SEARCH_QUERY = os.getenv("SEARCH_QUERY")
-MAX_RESULTS = int(os.getenv("MAX_RESULTS", 5))
+MAX_RESULTS = 6
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
-DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
+DEEPSEEK_BASE_URL = "https://api.deepseek.com"
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")  # 新增: Gemini API Key
-SUMMARY_LANGUAGE = os.getenv("SUMMARY_LANGUAGE", "en")
-PROCESSED_PMIDS_FILE = os.getenv("PROCESSED_PMIDS_FILE", "processed_pmids.json")
-PROCESSED_PMIDS_EXPIRATION_DAYS = int(os.getenv("PROCESSED_PMIDS_EXPIRATION_DAYS", 30))
+SUMMARY_LANGUAGE = "en"
+PROCESSED_PMIDS_FILE = "processed_pmids.json"
+PROCESSED_PMIDS_EXPIRATION_DAYS =  15
 
 # 初始化配置
 Entrez.email = EMAIL_ADDRESS
