@@ -43,7 +43,7 @@ jobs:
           PROCESSED_PMIDS_FILE: processed_pmids.json  #  重要：指定文件名，不需要secrets
           PROCESSED_PMIDS_EXPIRATION_DAYS: ${{ secrets.PROCESSED_PMIDS_EXPIRATION_DAYS }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-        run: python pubmed_summary.py
+        run: python WX_send_Email.py
 
       - name: Send email
         if: success() #  只有前面的步骤成功才运行
@@ -59,4 +59,4 @@ jobs:
           PROCESSED_PMIDS_FILE: processed_pmids.json #  重要：指定文件名，不需要secrets
           PROCESSED_PMIDS_EXPIRATION_DAYS: ${{ secrets.PROCESSED_PMIDS_EXPIRATION_DAYS }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-        run: python pubmed_summary.py --send
+        run: python WX_send_Email.py --send
