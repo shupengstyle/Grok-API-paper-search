@@ -18,7 +18,7 @@ jobs:
           python-version: '3.9'
 
       - name: Install dependencies
-        run: pip install requests openai biopython google-generativeai beautifulsoup4 python-dotenv pickle
+        run: pip install requests openai biopython google-generativeai beautifulsoup4 python-dotenv
 
       - name: Cache processed PMIDs
         id: cache-processed-pmids
