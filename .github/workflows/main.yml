@@ -6,9 +6,8 @@ on:
   workflow_dispatch:  # 允许手动触发
 
 jobs:
-  fetch_summarize_email:
+  fetch_summarize:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -19,16 +18,25 @@ jobs:
           python-version: '3.9'
 
       - name: Install dependencies
-        run: pip install requests openai biopython google-generativeai beautifulsoup4 sumy python-dotenv
+        run: pip install requests openai biopython google-generativeai beautifulsoup4 python-dotenv pickle
 
       - name: Cache processed PMIDs
         id: cache-processed-pmids
         uses: actions/cache@v3
         with:
-          path: processed_pmids.json  # 要缓存的文件
-          key: processed-pmids-${{ github.sha }}  # 缓存的键，使用 commit SHA 作为唯一标识
+          path: processed_pmids.json
+          key: processed-pmids-${{ github.sha }}
           restore-keys: |
-            processed-pmids- # 匹配任何以前的缓存
+            processed-pmids-
+
+      - name: Cache article cache
+        id: cache-article-cache
+        uses: actions/cache@v3
+        with:
+          path: article_cache.pkl
+          key: article-cache-${{ github.sha }}
+          restore-keys: |
+            article-cache-
 
       - name: Fetch and summarize PubMed articles
         env:
@@ -39,14 +47,44 @@ jobs:
           SEARCH_QUERY: ${{ secrets.SEARCH_QUERY }}
           PUBMED_API_KEY: ${{ secrets.PUBMED_API_KEY }}
           MAX_RESULTS: ${{ secrets.MAX_RESULTS }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          PROCESSED_PMIDS_FILE: processed_pmids.json  #  重要：指定文件名，不需要secrets
-          PROCESSED_PMIDS_EXPIRATION_DAYS: ${{ secrets.PROCESSED_PMIDS_EXPIRATION_DAYS }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          PROCESSED_PMIDS_FILE: processed_pmids.json
+          PROCESSED_PMIDS_EXPIRATION_DAYS: ${{ secrets.PROCESSED_PMIDS_EXPIRATION_DAYS }}
         run: python WX_send_Email.py
 
+  send_email:
+    needs: fetch_summarize
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: pip install requests openai biopython google-generativeai beautifulsoup4 python-dotenv pickle
+
+      - name: Restore processed PMIDs cache
+        uses: actions/cache@v3
+        with:
+          path: processed_pmids.json
+          key: processed-pmids-${{ github.sha }}
+          restore-keys: |
+            processed-pmids-
+
+      - name: Restore article cache
+        uses: actions/cache@v3
+        with:
+          path: article_cache.pkl
+          key: article-cache-${{ github.sha }}
+          restore-keys: |
+            article-cache-
+
       - name: Send email
-        if: success() #  只有前面的步骤成功才运行
         env:
           EMAIL_ADDRESS: ${{ secrets.EMAIL_ADDRESS }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
@@ -55,8 +93,8 @@ jobs:
           SEARCH_QUERY: ${{ secrets.SEARCH_QUERY }}
           PUBMED_API_KEY: ${{ secrets.PUBMED_API_KEY }}
           MAX_RESULTS: ${{ secrets.MAX_RESULTS }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          PROCESSED_PMIDS_FILE: processed_pmids.json #  重要：指定文件名，不需要secrets
-          PROCESSED_PMIDS_EXPIRATION_DAYS: ${{ secrets.PROCESSED_PMIDS_EXPIRATION_DAYS }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          PROCESSED_PMIDS_FILE: processed_pmids.json
+          PROCESSED_PMIDS_EXPIRATION_DAYS: ${{ secrets.PROCESSED_PMIDS_EXPIRATION_DAYS }}
         run: python WX_send_Email.py --send
