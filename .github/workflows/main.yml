@@ -6,7 +6,7 @@ on:
   workflow_dispatch:  # 允许手动触发
 
 jobs:
-  fetch_summarize:
+  fetch_summarize_and_send:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -29,17 +29,7 @@ jobs:
           restore-keys: |
             processed-articles-
 
-      - name: Cache new articles
-        id: cache-new-articles
-        uses: actions/cache@v3
-        with:
-          path: new_articles.json
-          key: new-articles-${{ github.sha }}
-          restore-keys: |
-            new-articles-
-
-
-      - name: Fetch and summarize PubMed articles
+      - name: Fetch, Summarize and Send Email
         env:
           EMAIL_ADDRESS: ${{ secrets.EMAIL_ADDRESS }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
@@ -50,48 +40,4 @@ jobs:
           MAX_RESULTS: ${{ secrets.MAX_RESULTS }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: python WX_send_Email.py --fetch-and-summarize
-
-  send_email:
-    needs: fetch_summarize
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.9'
-
-      - name: Install dependencies
-        run: pip install requests openai biopython google-generativeai beautifulsoup4 python-dotenv
-
-      - name: Restore processed articles cache
-        uses: actions/cache@v3
-        with:
-          path: processed_articles.json
-          key: processed-articles-${{ github.sha }}
-          restore-keys: |
-            processed-articles-
-
-      - name: Restore new articles cache
-        uses: actions/cache@v3
-        with:
-          path: new_articles.json
-          key: new-articles-${{ github.sha }}
-          restore-keys: |
-            new-articles-
-
-      - name: Send email
-        env:
-          EMAIL_ADDRESS: ${{ secrets.EMAIL_ADDRESS }}
-          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
-          EMAIL_SMTP_SERVER: ${{ secrets.EMAIL_SMTP_SERVER }}
-          EMAIL_SMTP_PORT: ${{ secrets.EMAIL_SMTP_PORT }}
-          SEARCH_QUERY: ${{ secrets.SEARCH_QUERY }}
-          PUBMED_API_KEY: ${{ secrets.PUBMED_API_KEY }}
-          MAX_RESULTS: ${{ secrets.MAX_RESULTS }}
-          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: python WX_send_Email.py --send
+        run: python WX_send_Email.py
