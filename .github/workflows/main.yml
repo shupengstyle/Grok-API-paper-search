@@ -20,23 +20,24 @@ jobs:
       - name: Install dependencies
         run: pip install requests openai biopython google-generativeai beautifulsoup4 python-dotenv
 
-      - name: Cache processed PMIDs
-        id: cache-processed-pmids
+      - name: Cache processed articles
+        id: cache-processed-articles
         uses: actions/cache@v3
         with:
-          path: processed_pmids.json
-          key: processed-pmids-${{ github.sha }}
+          path: processed_articles.json
+          key: processed-articles-${{ github.sha }}
           restore-keys: |
-            processed-pmids-
+            processed-articles-
 
-      - name: Cache article cache
-        id: cache-article-cache
+      - name: Cache new articles
+        id: cache-new-articles
         uses: actions/cache@v3
         with:
-          path: article_cache.pkl
-          key: article-cache-${{ github.sha }}
+          path: new_articles.json
+          key: new-articles-${{ github.sha }}
           restore-keys: |
-            article-cache-
+            new-articles-
+
 
       - name: Fetch and summarize PubMed articles
         env:
@@ -49,9 +50,7 @@ jobs:
           MAX_RESULTS: ${{ secrets.MAX_RESULTS }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          PROCESSED_PMIDS_FILE: processed_pmids.json
-          PROCESSED_PMIDS_EXPIRATION_DAYS: ${{ secrets.PROCESSED_PMIDS_EXPIRATION_DAYS }}
-        run: python WX_send_Email.py
+        run: python WX_send_Email.py --fetch-and-summarize
 
   send_email:
     needs: fetch_summarize
@@ -66,23 +65,23 @@ jobs:
           python-version: '3.9'
 
       - name: Install dependencies
-        run: pip install requests openai biopython google-generativeai beautifulsoup4 python-dotenv pickle
+        run: pip install requests openai biopython google-generativeai beautifulsoup4 python-dotenv
 
-      - name: Restore processed PMIDs cache
+      - name: Restore processed articles cache
         uses: actions/cache@v3
         with:
-          path: processed_pmids.json
-          key: processed-pmids-${{ github.sha }}
+          path: processed_articles.json
+          key: processed-articles-${{ github.sha }}
           restore-keys: |
-            processed-pmids-
+            processed-articles-
 
-      - name: Restore article cache
+      - name: Restore new articles cache
         uses: actions/cache@v3
         with:
-          path: article_cache.pkl
-          key: article-cache-${{ github.sha }}
+          path: new_articles.json
+          key: new-articles-${{ github.sha }}
           restore-keys: |
-            article-cache-
+            new-articles-
 
       - name: Send email
         env:
@@ -95,6 +94,4 @@ jobs:
           MAX_RESULTS: ${{ secrets.MAX_RESULTS }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          PROCESSED_PMIDS_FILE: processed_pmids.json
-          PROCESSED_PMIDS_EXPIRATION_DAYS: ${{ secrets.PROCESSED_PMIDS_EXPIRATION_DAYS }}
         run: python WX_send_Email.py --send
