@@ -250,7 +250,7 @@ def summarize_text_gemini(text, target_language="en"):
         return "无法生成总结"
 
 
-def send_email(articles):
+def send_email(articles, processed_articles):  # Added processed_articles parameter
     """发送文献汇总邮件"""
     try:
         # 构建邮件内容
@@ -303,86 +303,72 @@ def send_email(articles):
         logging.error(f"❌ 邮件发送失败: {str(e)}")
 
 
-def main(args):
+def main(): # Removed args parameter
     """主函数，根据参数执行不同的操作。"""
     logging.info("🚀 开始执行...")
 
-    if args.fetch_and_summarize:
-        logging.info("🔄 获取并总结文献...")
-        all_articles = fetch_articles()
+    logging.info("🔄 获取并总结文献...")
+    all_articles = fetch_articles()
 
-        if not all_articles:
-            logging.warning("❌ 未找到相关文献")
-            return
+    if not all_articles:
+        logging.warning("❌ 未找到相关文献")
+        return
 
-        # Load previously processed articles
-        processed_articles = load_processed_articles()
+    # Load previously processed articles
+    processed_articles = load_processed_articles()
 
-        new_articles = []
-        for article in all_articles:
-            # Generate hash for the article
-            article_hash = generate_article_hash(article)
+    new_articles = []
+    for article in all_articles:
+        # Generate hash for the article
+        article_hash = generate_article_hash(article)
 
-            # Check if the article has already been processed
-            if article_hash not in processed_articles:
-                # 获取全文
-                fulltext = get_fulltext_by_doi(article["doi"])
-                if not fulltext:
-                    fulltext = get_fulltext_by_pmcid(article["pmcid"])
+        # Check if the article has already been processed
+        if article_hash not in processed_articles:
+            # 获取全文
+            fulltext = get_fulltext_by_doi(article["doi"])
+            if not fulltext:
+                fulltext = get_fulltext_by_pmcid(article["pmcid"])
 
-                # 总结和翻译
-                if fulltext:
-                    summary = summarize_text(fulltext)
-                else:
-                    summary = summarize_text(article["abstract"] or "无摘要")
-
-                translated_summary = translate_text(summary, target_language="zh-CN")
-                translated_title = translate_text(article["title"], target_language="zh-CN")
-
-                # 将结果添加到 new_articles
-                article["summary"] = translated_summary
-                article["translated_title"] = translated_title
-                article["link"] = f"https://pubmed.ncbi.nlm.nih.gov/{article['pmid']}/"
-                new_articles.append(article)
-
-                # Add article hash to the processed articles
-                processed_articles[article_hash] = True  # You can store more information if needed
-
-                logging.info(f"已添加新文章: PMID {article['pmid']}, 标题: {article['title']}")
-                time.sleep(0.5)  # 避免速率限制
+            # 总结和翻译
+            if fulltext:
+                summary = summarize_text(fulltext)
             else:
-                logging.info(f"文章已存在: PMID {article['pmid']}, 标题: {article['title']}")
+                summary = summarize_text(article["abstract"] or "无摘要")
 
+            translated_summary = translate_text(summary, target_language="zh-CN")
+            translated_title = translate_text(article["title"], target_language="zh-CN")
 
-        # Save the updated processed articles list
-        save_processed_articles(processed_articles)
+            # 将结果添加到 new_articles
+            article["summary"] = translated_summary
+            article["translated_title"] = translated_title
+            article["link"] = f"https://pubmed.ncbi.nlm.nih.gov/{article['pmid']}/"
+            new_articles.append(article)
 
+            # Add article hash to the processed articles
+            processed_articles[article_hash] = True  # You can store more information if needed
 
-        # 将 new_articles 保存到文件，供 send 步骤使用
-        with open("new_articles.json", "w", encoding="utf-8") as f:
-            json.dump(new_articles, f, ensure_ascii=False)  # 避免 ASCII 编码问题
-
-    elif args.send:
-        logging.info("📧 发送邮件...")
-        try:
-            with open("new_articles.json", "r", encoding="utf-8") as f:
-                new_articles = json.load(f)
-        except FileNotFoundError:
-            logging.warning("❌ new_articles.json 文件未找到，可能没有新的文献需要发送。")
-            return
-        except json.JSONDecodeError:
-            logging.error("❌ new_articles.json 文件解码失败，无法发送邮件。")
-            return
-
-        if new_articles:
-            send_email(new_articles)  # 只发送新的文献
+            logging.info(f"已添加新文章: PMID {article['pmid']}, 标题: {article['title']}")
+            time.sleep(0.5)  # 避免速率限制
         else:
-            logging.info("❌ 没有新的文献需要发送")
+            logging.info(f"文章已存在: PMID {article['pmid']}, 标题: {article['title']}")
+
+
+    # Save the updated processed articles list
+    save_processed_articles(processed_articles)
+
+
+    # 发送邮件
+    logging.info("📧 发送邮件...")
+    if new_articles:
+        send_email(new_articles, processed_articles)  # Only send new articles
+    else:
+        logging.info("❌ 没有新的文献需要发送")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Fetch and summarize PubMed articles and send email.")
-    parser.add_argument("--fetch-and-summarize", action="store_true", help="Fetch and summarize articles.")
-    parser.add_argument("--send", action="store_true", help="Send the email.")
-    args = parser.parse_args()
+    #parser = argparse.ArgumentParser(description="Fetch and summarize PubMed articles and send email.")
+    #parser.add_argument("--fetch-and-summarize", action="store_true", help="Fetch and summarize articles.")
+    #parser.add_argument("--send", action="store_true", help="Send the email.")
+    #args = parser.parse_args()
 
-    main(args)
+    #main(args)
+    main() # Run the main function directly
