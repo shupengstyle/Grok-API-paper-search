@@ -1,4 +1,3 @@
-import argparse
 import os
 import time
 import smtplib
@@ -13,7 +12,8 @@ import json
 from datetime import datetime, timedelta
 import openai
 import google.generativeai as genai
-import pickle  # 用于缓存文章数据
+import argparse  # 导入 argparse
+import hashlib
 
 # Load environment variables from .env file
 dotenv.load_dotenv()
@@ -28,14 +28,11 @@ EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 SMTP_SERVER = os.getenv("EMAIL_SMTP_SERVER", "smtp.yeah.net")
 SMTP_PORT = int(os.getenv("EMAIL_SMTP_PORT", 465))
 SEARCH_QUERY = os.getenv("SEARCH_QUERY")
-MAX_RESULTS = int(os.getenv("MAX_RESULTS", 5))
+MAX_RESULTS = int(os.getenv("MAX_RESULTS", 15))
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 SUMMARY_LANGUAGE = os.getenv("SUMMARY_LANGUAGE", "en")
-PROCESSED_PMIDS_FILE = os.getenv("PROCESSED_PMIDS_FILE", "processed_pmids.json")
-PROCESSED_PMIDS_EXPIRATION_DAYS = int(os.getenv("PROCESSED_PMIDS_EXPIRATION_DAYS", 30))
-ARTICLE_CACHE_FILE = "article_cache.pkl"  # 用于缓存文章数据的文件名
 
 # 初始化配置
 Entrez.email = EMAIL_ADDRESS
@@ -48,24 +45,29 @@ client = openai.OpenAI(api_key=DEEPSEEK_API_KEY, base_url=DEEPSEEK_BASE_URL)
 genai.configure(api_key=GEMINI_API_KEY)
 gemini_model = genai.GenerativeModel('gemini-pro')
 
-def load_processed_pmids():
-    """Load processed PMIDs from file."""
+def generate_article_hash(article):
+    """Generate a unique hash for an article based on its key information."""
+    article_string = f"{article['title']}{article['abstract']}{article['authors']}{article['journal']}{article['year']}"
+    return hashlib.md5(article_string.encode('utf-8')).hexdigest()
+
+
+def load_processed_articles(filename="processed_articles.json"):
+    """Load the list of already processed articles from a file."""
     try:
-        with open(PROCESSED_PMIDS_FILE, "r") as f:
+        with open(filename, "r", encoding="utf-8") as f:
             return json.load(f)
     except FileNotFoundError:
-        return []
+        return {}
     except json.JSONDecodeError:
-        logging.warning("Processed PMIDs file is corrupted. Starting with an empty list.")
-        return []
+        logging.warning("❌ processed_articles.json 文件解码失败，使用空字典。")
+        return {}
 
-def save_processed_pmids(pmids):
-    """Save processed PMIDs to file."""
-    try:
-        with open(PROCESSED_PMIDS_FILE, "w") as f:
-            json.dump(pmids, f)
-    except Exception as e:
-        logging.error(f"Failed to save processed PMIDs to file: {e}")
+
+def save_processed_articles(processed_articles, filename="processed_articles.json"):
+    """Save the list of processed articles to a file."""
+    with open(filename, "w", encoding="utf-8") as f:
+        json.dump(processed_articles, f, ensure_ascii=False)
+
 
 def fetch_articles():
     """获取文献列表和基本信息"""
@@ -128,6 +130,7 @@ def fetch_articles():
         logging.error(f"文献搜索失败: {str(e)}")
         return []
 
+
 def get_fulltext_by_doi(doi):
     """尝试通过DOI获取全文"""
     if doi == "无DOI":
@@ -145,6 +148,7 @@ def get_fulltext_by_doi(doi):
         print(f"请求DOI全文失败: {str(e)}, doi: {doi}")
         return None
 
+
 def get_fulltext_by_pmcid(pmcid):
     """尝试通过PMCID获取全文"""
     if not pmcid or pmcid == "无PMCID":
@@ -161,6 +165,7 @@ def get_fulltext_by_pmcid(pmcid):
     except requests.exceptions.RequestException as e:
         print(f"请求PMCID全文失败: {str(e)}, pmcid: {pmcid}")
         return None
+
 
 def translate_text(text, target_language="zh-CN"):
     """使用 DeepSeek API 翻译文本, 失败则使用 Gemini API"""
@@ -180,6 +185,7 @@ def translate_text(text, target_language="zh-CN"):
     except Exception as e:
         logging.error(f"DeepSeek API 翻译失败: {str(e)}, 尝试使用 Gemini API")
         return translate_text_gemini(text, target_language)  # 调用 Gemini API
+
 
 def summarize_text(text, target_language="en"):
     """使用 DeepSeek API 生成文本总结, 失败则使用 Gemini API"""
@@ -210,6 +216,7 @@ def summarize_text(text, target_language="en"):
         logging.error(f"DeepSeek API 总结失败: {str(e)}, 尝试使用 Gemini API")
         return summarize_text_gemini(text, target_language)  # 调用 Gemini API
 
+
 def translate_text_gemini(text, target_language="zh-CN"):
     """使用 Gemini API 翻译文本"""
     if not text:
@@ -222,6 +229,7 @@ def translate_text_gemini(text, target_language="zh-CN"):
         logging.error(f"Gemini API 翻译失败: {str(e)}")
         return text
 
+
 def summarize_text_gemini(text, target_language="en"):
     """使用 Gemini API 生成文本总结"""
     if not text:
@@ -231,6 +239,7 @@ def summarize_text_gemini(text, target_language="en"):
         Please provide an academic summary of the following medical research article, 
         ensuring it encompasses the study's background, the methodology used, 
         the principal research results obtained, and an assessment of the research's significance and value. 
+        The summary should be clear, concise, and free of unnecessary detail. 
         文本：
         {text}
         """
@@ -240,21 +249,6 @@ def summarize_text_gemini(text, target_language="en"):
         logging.error(f"Gemini API 总结失败: {str(e)}")
         return "无法生成总结"
 
-def cleanup_processed_pmids(pmids):
-    """Cleanup processed PMIDs, removing entries older than PROCESSED_PMIDS_EXPIRATION_DAYS."""
-    cutoff_date = datetime.now() - timedelta(days=PROCESSED_PMIDS_EXPIRATION_DAYS)
-    cleaned_pmids = []
-    for entry in pmids:
-        try:
-            # Assuming the timestamp is stored as a string in ISO format
-            entry_date = datetime.fromisoformat(entry["timestamp"])
-            if entry_date >= cutoff_date:
-                cleaned_pmids.append(entry)
-        except (KeyError, ValueError) as e:
-            logging.warning(f"Invalid entry format in processed PMIDs: {entry}. Error: {e}. Skipping.")
-            continue  # Skip invalid entries
-    logging.info(f"Cleaned up processed PMIDs, removed {len(pmids) - len(cleaned_pmids)} entries.")
-    return cleaned_pmids
 
 def send_email(articles):
     """发送文献汇总邮件"""
@@ -308,111 +302,87 @@ def send_email(articles):
     except Exception as e:
         logging.error(f"❌ 邮件发送失败: {str(e)}")
 
-def is_processed(processed_pmids, article):
-    """检查文章是否已被处理，优先使用PMCID，如果PMCID不存在则使用DOI"""
-    for entry in processed_pmids:
-        if article["pmcid"] != "无PMCID" and entry.get("pmcid") == article["pmcid"]:  # 优先匹配PMCID
-            return True
-        elif article["doi"] != "无DOI" and entry.get("doi") == article["doi"]:  # 如果没有PMCID，则匹配DOI
-            return True
-    return False
-
-def load_article_cache():
-    """从文件加载缓存的文章数据."""
-    try:
-        with open(ARTICLE_CACHE_FILE, "rb") as f:
-            return pickle.load(f)
-    except FileNotFoundError:
-        return {}
-    except Exception as e:
-        logging.warning(f"Failed to load article cache: {e}. Starting with an empty cache.")
-        return {}
-
-def save_article_cache(cache):
-    """将文章数据缓存到文件."""
-    try:
-        with open(ARTICLE_CACHE_FILE, "wb") as f:
-            pickle.dump(cache, f)
-    except Exception as e:
-        logging.error(f"Failed to save article cache: {e}")
-
-def process_article(article):
-    """处理单个文章，获取全文，总结和翻译."""
-    pmid = article["pmid"]
-
-    # 获取全文
-    fulltext = get_fulltext_by_doi(article["doi"])
-    if not fulltext:
-        fulltext = get_fulltext_by_pmcid(article["pmcid"])
-
-    # 总结和翻译
-    if fulltext:
-        summary = summarize_text(fulltext)
-    else:
-        summary = summarize_text(article["abstract"] or "无摘要")
-
-    translated_summary = translate_text(summary, target_language="zh-CN")
-    translated_title = translate_text(article["title"], target_language="zh-CN")
-
-    # 更新文章信息
-    article["summary"] = translated_summary
-    article["translated_title"] = translated_title
-    article["link"] = f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
-
-    return article
 
 def main(args):
-    """主函数."""
+    """主函数，根据参数执行不同的操作。"""
+    logging.info("🚀 开始执行...")
 
-    article_cache = load_article_cache()
-    processed_pmids = load_processed_pmids()
-    processed_pmids = cleanup_processed_pmids(processed_pmids)
+    if args.fetch_and_summarize:
+        logging.info("🔄 获取并总结文献...")
+        all_articles = fetch_articles()
 
-    new_articles = []
+        if not all_articles:
+            logging.warning("❌ 未找到相关文献")
+            return
 
-    logging.info("🚀 开始获取文献...")
-    all_articles = fetch_articles()
+        # Load previously processed articles
+        processed_articles = load_processed_articles()
 
-    if not all_articles:
-        logging.warning("❌ 未找到相关文献")
-        return
+        new_articles = []
+        for article in all_articles:
+            # Generate hash for the article
+            article_hash = generate_article_hash(article)
 
-    for article in all_articles:
-        pmid = article["pmid"]
-        if not is_processed(processed_pmids, article):
-            if pmid not in article_cache:
-                logging.info(f"正在处理新文章: PMID {pmid}, 标题: {article['title']}")
-                processed_article = process_article(article)
-                article_cache[pmid] = processed_article
-                save_article_cache(article_cache) # 保存缓存
-                time.sleep(0.5)
+            # Check if the article has already been processed
+            if article_hash not in processed_articles:
+                # 获取全文
+                fulltext = get_fulltext_by_doi(article["doi"])
+                if not fulltext:
+                    fulltext = get_fulltext_by_pmcid(article["pmcid"])
+
+                # 总结和翻译
+                if fulltext:
+                    summary = summarize_text(fulltext)
+                else:
+                    summary = summarize_text(article["abstract"] or "无摘要")
+
+                translated_summary = translate_text(summary, target_language="zh-CN")
+                translated_title = translate_text(article["title"], target_language="zh-CN")
+
+                # 将结果添加到 new_articles
+                article["summary"] = translated_summary
+                article["translated_title"] = translated_title
+                article["link"] = f"https://pubmed.ncbi.nlm.nih.gov/{article['pmid']}/"
+                new_articles.append(article)
+
+                # Add article hash to the processed articles
+                processed_articles[article_hash] = True  # You can store more information if needed
+
+                logging.info(f"已添加新文章: PMID {article['pmid']}, 标题: {article['title']}")
+                time.sleep(0.5)  # 避免速率限制
             else:
-                logging.info(f"从缓存加载文章: PMID {pmid}")
-                processed_article = article_cache[pmid]
+                logging.info(f"文章已存在: PMID {article['pmid']}, 标题: {article['title']}")
 
-            new_articles.append(processed_article)
 
-            # 保存已处理的 PMID 信息
-            processed_pmids.append({
-                "pmid": pmid,
-                "timestamp": datetime.now().isoformat(),
-                "pmcid": article["pmcid"],
-                "doi": article["doi"]
-            })
-            logging.info(f"已添加新文章: PMID {article['pmid']}, 标题: {article['title']}")
+        # Save the updated processed articles list
+        save_processed_articles(processed_articles)
 
+
+        # 将 new_articles 保存到文件，供 send 步骤使用
+        with open("new_articles.json", "w", encoding="utf-8") as f:
+            json.dump(new_articles, f, ensure_ascii=False)  # 避免 ASCII 编码问题
+
+    elif args.send:
+        logging.info("📧 发送邮件...")
+        try:
+            with open("new_articles.json", "r", encoding="utf-8") as f:
+                new_articles = json.load(f)
+        except FileNotFoundError:
+            logging.warning("❌ new_articles.json 文件未找到，可能没有新的文献需要发送。")
+            return
+        except json.JSONDecodeError:
+            logging.error("❌ new_articles.json 文件解码失败，无法发送邮件。")
+            return
+
+        if new_articles:
+            send_email(new_articles)  # 只发送新的文献
         else:
-            logging.info(f"PMID {pmid} (PMCID: {article['pmcid']}, DOI: {article['doi']}) 已经处理过，跳过")
-
-    if args.send:
-        send_email(new_articles)
-        save_processed_pmids(processed_pmids)  # 保存已处理的PMID列表
-    else:
-        logging.info("Skipping email sending because --send argument was not provided.")
-        save_processed_pmids(processed_pmids)
+            logging.info("❌ 没有新的文献需要发送")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="PubMed Literature Summary to Email")
-    parser.add_argument("--send", action="store_true", help="Send the email")
+    parser = argparse.ArgumentParser(description="Fetch and summarize PubMed articles and send email.")
+    parser.add_argument("--fetch-and-summarize", action="store_true", help="Fetch and summarize articles.")
+    parser.add_argument("--send", action="store_true", help="Send the email.")
     args = parser.parse_args()
+
     main(args)
