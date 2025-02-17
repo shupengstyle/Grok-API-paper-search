@@ -2,8 +2,8 @@ name: PubMed Literature Summary to Email
 
 on:
   schedule:
-    - cron: '30 22 * * *'  # 每天 UTC 22:30 运行（北京时间 06:30）
-  workflow_dispatch:  # 允许手动触发
+    - cron: '30 22 * * *' # Runs daily at 22:30 UTC (06:30 Beijing time)
+  workflow_dispatch: # Allows manual triggering
 
 jobs:
   fetch_summarize_and_send:
@@ -21,7 +21,7 @@ jobs:
         run: pip install requests lxml openai biopython google-generativeai beautifulsoup4 python-dotenv
 
       - name: Cache processed articles
-        uses: actions/upload-artifacts@v4
+        uses: actions/cache@v3  # Use actions/cache for caching
         with:
           path: processed_articles.json
           key: processed-articles-${{ hashFiles('processed_articles.json') }}
@@ -38,9 +38,9 @@ jobs:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python WX_send_Email.py
-        
-      - name: Upload new processed articles
-        uses: actions/upload-artifact@v3
+
+      - name: Upload processed articles
+        uses: actions/upload-artifact@v3  # Consistent use of v3
         if: always()
         with:
           name: processed-articles
