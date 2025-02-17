@@ -21,13 +21,10 @@ jobs:
         run: pip install requests lxml openai biopython google-generativeai beautifulsoup4 python-dotenv
 
       - name: Cache processed articles
-        id: cache-processed-articles
         uses: actions/cache@v3
         with:
           path: processed_articles.json
-          key: processed-articles-${{ github.sha }}
-          restore-keys: |
-            processed-articles-
+          key: processed-articles-${{ hashFiles('processed_articles.json') }}
 
       - name: Fetch, Summarize and Send Email
         env:
