@@ -38,3 +38,10 @@ jobs:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python WX_send_Email.py
+        
+      - name: Upload new processed articles
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: processed-articles
+          path: processed_articles.json
