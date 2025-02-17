@@ -21,7 +21,7 @@ jobs:
         run: pip install requests lxml openai biopython google-generativeai beautifulsoup4 python-dotenv
 
       - name: Cache processed articles
-        uses: actions/cache@v3  # Use actions/cache for caching
+        uses: actions/cache@v3 # Use actions/cache for caching
         with:
           path: processed_articles.json
           key: processed-articles-${{ hashFiles('processed_articles.json') }}
@@ -39,8 +39,8 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python WX_send_Email.py
 
-      - name: Upload processed articles
-        uses: actions/upload-artifact@v3  # Consistent use of v3
+      - name: Upload processed articles # Corrected: v4 here
+        uses: actions/upload-artifact@v4  # Use v4!
         if: always()
         with:
           name: processed-articles
