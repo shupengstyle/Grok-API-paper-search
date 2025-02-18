@@ -257,7 +257,7 @@ def send_email(articles, processed_articles):  # Added processed_articles parame
         msg = MIMEMultipart()
         msg["From"] = EMAIL_ADDRESS
         msg["To"] = EMAIL_ADDRESS
-        msg["Subject"] = f"PubMed文献更新 - {SEARCH_QUERY}"
+        msg["Subject"] = f"PubMed文献更新 - 关节置换 "   # - {SEARCH_QUERY}
 
         # HTML内容模板
         html_content = f"""
