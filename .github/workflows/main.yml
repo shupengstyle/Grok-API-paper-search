@@ -38,7 +38,7 @@ jobs:
           SEARCH_QUERY: ${{ secrets.SEARCH_QUERY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          python Grok 3 paper search.py
+          python Grok3_paper_research.py
 
       - name: Upload database as artifact
         uses: actions/upload-artifact@v4
