@@ -1,0 +1,9 @@
+biopython
+beautifulsoup4
+requests
+python-dotenv
+openai
+google-generativeai
+lxml
+tenacity
+aiohttp
