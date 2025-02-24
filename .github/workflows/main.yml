@@ -6,42 +6,42 @@ on:
   workflow_dispatch: # Allows manual triggering
 
 jobs:
-  fetch_summarize_and_send:
+  run-script:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.9'
+          python-version: '3.x'
 
       - name: Install dependencies
-        run: pip install requests lxml openai biopython google-generativeai beautifulsoup4 python-dotenv
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-      - name: Cache processed articles
-        uses: actions/cache@v3 # Use actions/cache for caching
+      - name: Download previous database
+        uses: actions/download-artifact@v4
         with:
-          path: processed_articles.json
-          key: processed-articles-${{ hashFiles('processed_articles.json') }}
+          name: processed_articles_db
+          path: .
+        continue-on-error: true  # 如果首次运行无 Artifact，继续执行
 
-      - name: Fetch, Summarize and Send Email
+      - name: Run PubMed Summary Script
         env:
+          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+          PUBMED_API_KEY: ${{ secrets.PUBMED_API_KEY }}
           EMAIL_ADDRESS: ${{ secrets.EMAIL_ADDRESS }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
-          EMAIL_SMTP_SERVER: ${{ secrets.EMAIL_SMTP_SERVER }}
-          EMAIL_SMTP_PORT: ${{ secrets.EMAIL_SMTP_PORT }}
           SEARCH_QUERY: ${{ secrets.SEARCH_QUERY }}
-          PUBMED_API_KEY: ${{ secrets.PUBMED_API_KEY }}
-          MAX_RESULTS: ${{ secrets.MAX_RESULTS }}
-          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: python WX_send_Email.py
+        run: |
+          python Grok 3 paper search.py
 
-      - name: Upload processed articles # Corrected: v4 here
-        uses: actions/upload-artifact@v4  # Use v4!
-        if: always()
+      - name: Upload database as artifact
+        uses: actions/upload-artifact@v4
         with:
-          name: processed-articles
-          path: processed_articles.json
+          name: processed_articles_db
+          path: processed_articles.db
