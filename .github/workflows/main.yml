@@ -4,6 +4,7 @@ on:
   schedule:
     - cron: '30 22 * * *' # Runs daily at 22:30 UTC (06:30 Beijing time)
   workflow_dispatch: # Allows manual triggering
+name: Run PubMed Summary Script
 
 jobs:
   run-script:
@@ -22,16 +23,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Download previous database
-        uses: actions/download-artifact@v4
-        with:
-          name: processed_articles_db
-          path: .
-        continue-on-error: true
-
-      - name: Check downloaded file
+      - name: Check database file before run
         run: |
-          ls -lh processed_articles.db || echo "No database file downloaded"
+          ls -lh processed_articles.db || echo "No database file exists yet"
 
       - name: Run PubMed Summary Script
         env:
@@ -42,14 +36,18 @@ jobs:
           SEARCH_QUERY: ${{ secrets.SEARCH_QUERY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          python Grok3_paper_research.py
+          python ymlGrok3_paper_research.py
 
-      - name: Check database file
+      - name: Check database file after run
         run: |
-          ls -lh processed_articles.db || echo "Database file not found"
+          ls -lh processed_articles.db || echo "Database file not found after script run"
 
-      - name: Upload database as artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: processed_articles_db
-          path: processed_articles.db
+      - name: Commit and push database
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+          git add processed_articles.db
+          git commit -m "Update processed_articles.db with latest run" || echo "No changes to commit"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
