@@ -42,7 +42,7 @@ jobs:
           SEARCH_QUERY: ${{ secrets.SEARCH_QUERY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          python pubmed_summary.py
+          python Grok3_paper_research.py
 
       - name: Check database file
         run: |
