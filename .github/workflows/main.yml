@@ -27,7 +27,11 @@ jobs:
         with:
           name: processed_articles_db
           path: .
-        continue-on-error: true  # 如果首次运行无 Artifact，继续执行
+        continue-on-error: true
+
+      - name: Check downloaded file
+        run: |
+          ls -lh processed_articles.db || echo "No database file downloaded"
 
       - name: Run PubMed Summary Script
         env:
@@ -38,7 +42,11 @@ jobs:
           SEARCH_QUERY: ${{ secrets.SEARCH_QUERY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          python Grok3_paper_research.py
+          python pubmed_summary.py
+
+      - name: Check database file
+        run: |
+          ls -lh processed_articles.db || echo "Database file not found"
 
       - name: Upload database as artifact
         uses: actions/upload-artifact@v4
