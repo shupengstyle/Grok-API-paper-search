@@ -56,7 +56,6 @@ gemini_model = genai.GenerativeModel('gemini-pro')
 DATABASE_FILE = "processed_articles.db"
 DATA_RETENTION_DAYS = 30
 
-
 # Grok API call with retry
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
 def call_grok_api(prompt):
@@ -74,8 +73,7 @@ def call_grok_api(prompt):
         logging.error(f"Grok API 调用失败: {str(e)}")
         raise
 
-
-# Database functions (unchanged)
+# Database functions
 def generate_article_hash(article):
     if article.get("pmid") and article["pmid"] != "无PMID":
         identifier = article["pmid"]
@@ -85,16 +83,19 @@ def generate_article_hash(article):
         return None
     return hashlib.md5(identifier.encode('utf-8')).hexdigest()
 
-
 def create_connection():
     conn = None
     try:
+        # 检查文件是否存在并记录
+        if os.path.exists(DATABASE_FILE):
+            logging.info(f"✅ 数据库文件已存在: {DATABASE_FILE}")
+        else:
+            logging.info(f"⚠️ 数据库文件不存在，将创建新文件: {DATABASE_FILE}")
         conn = sqlite3.connect(DATABASE_FILE)
         logging.info(f"✅ 成功连接到数据库: {DATABASE_FILE}")
     except sqlite3.Error as e:
         logging.error(f"❌ 数据库连接失败: {e}")
     return conn
-
 
 def create_table(conn):
     try:
@@ -114,7 +115,6 @@ def create_table(conn):
     except sqlite3.Error as e:
         logging.error(f"❌ 创建表失败: {e}")
 
-
 def load_processed_articles(conn):
     processed_articles = {}
     try:
@@ -130,7 +130,6 @@ def load_processed_articles(conn):
         logging.error(f"❌ 从数据库加载数据失败: {e}")
     return processed_articles
 
-
 def save_processed_article(conn, article_hash, pmid, doi, title):
     try:
         sql = "INSERT INTO processed_articles (article_hash, pmid, doi, title, processed_date) VALUES (?, ?, ?, ?, ?)"
@@ -140,7 +139,6 @@ def save_processed_article(conn, article_hash, pmid, doi, title):
         logging.info(f"✅ 保存文章到数据库: PMID {pmid}, DOI: {doi}, 标题: {title}")
     except sqlite3.Error as e:
         logging.error(f"❌ 保存文章到数据库失败: {e}")
-
 
 def delete_expired_articles(conn, retention_days=DATA_RETENTION_DAYS):
     try:
@@ -155,8 +153,7 @@ def delete_expired_articles(conn, retention_days=DATA_RETENTION_DAYS):
     except sqlite3.Error as e:
         logging.error(f"❌ 删除过期文章失败: {e}")
 
-
-# Fetch articles (unchanged)
+# Fetch articles
 def fetch_articles():
     try:
         handle = Entrez.esearch(db="pubmed", term=SEARCH_QUERY, retmax=MAX_RESULTS, sort="pub_date")
@@ -172,19 +169,13 @@ def fetch_articles():
                 title = article.find("ArticleTitle").get_text() if article.find("ArticleTitle") else "无标题"
                 journal = article.find("ISOAbbreviation").get_text() if article.find("ISOAbbreviation") else "未知杂志"
                 year = article.find("Year").get_text() if article.find("Year") else "未知年份"
-                doi = article.find("ELocationID", {"EIdType": "doi"}).get_text() if article.find("ELocationID", {
-                    "EIdType": "doi"}) else "无DOI"
-                pmcid = article.find("ArticleId", {"IdType": "pmc"}).get_text() if article.find("ArticleId", {
-                    "IdType": "pmc"}) else "无PMCID"
+                doi = article.find("ELocationID", {"EIdType": "doi"}).get_text() if article.find("ELocationID", {"EIdType": "doi"}) else "无DOI"
+                pmcid = article.find("ArticleId", {"IdType": "pmc"}).get_text() if article.find("ArticleId", {"IdType": "pmc"}) else "无PMCID"
                 authors = [f"{author.find('LastName').get_text()} {author.find('Initials').get_text()}"
                            for author in article.find_all("Author")
                            if author.find("LastName") and author.find("Initials")]
-                abstract = "\n".join(
-                    [text.get_text() for text in article.find("Abstract").find_all("AbstractText")]) if article.find(
-                    "Abstract") else ""
-                articles.append(
-                    {"pmid": pmid, "title": title, "journal": journal, "year": year, "doi": doi, "pmcid": pmcid,
-                     "authors": authors, "abstract": abstract})
+                abstract = "\n".join([text.get_text() for text in article.find("Abstract").find_all("AbstractText")]) if article.find("Abstract") else ""
+                articles.append({"pmid": pmid, "title": title, "journal": journal, "year": year, "doi": doi, "pmcid": pmcid, "authors": authors, "abstract": abstract})
             except Exception as e:
                 logging.error(f"解析PMID {pmid} 时发生错误: {e}")
                 continue
@@ -192,7 +183,6 @@ def fetch_articles():
     except Exception as e:
         logging.error(f"文献搜索失败: {str(e)}")
         return []
-
 
 # Async full-text fetching
 async def fetch_fulltext(session, url):
@@ -203,7 +193,6 @@ async def fetch_fulltext(session, url):
         logging.error(f"异步请求失败: {str(e)}，URL: {url}")
         return None
 
-
 async def get_fulltexts(articles):
     async with aiohttp.ClientSession() as session:
         tasks = []
@@ -211,12 +200,10 @@ async def get_fulltexts(articles):
             if article["doi"] != "无DOI":
                 tasks.append(fetch_fulltext(session, f"https://doi.org/{article['doi']}"))
             elif article["pmcid"] != "无PMCID":
-                tasks.append(fetch_fulltext(session,
-                                            f"https://www.ncbi.nlm.nih.gov/pmc/articles/PMC{article['pmcid']}/?format=txt"))
+                tasks.append(fetch_fulltext(session, f"https://www.ncbi.nlm.nih.gov/pmc/articles/PMC{article['pmcid']}/?format=txt"))
             else:
                 tasks.append(asyncio.ensure_future(asyncio.sleep(0, result=None)))
         return await asyncio.gather(*tasks)
-
 
 # Translation and summarization
 def translate_text(text, target_language="zh-CN"):
@@ -229,7 +216,6 @@ def translate_text(text, target_language="zh-CN"):
     except Exception as e:
         logging.error(f"Grok翻译失败: {str(e)}, 尝试使用Gemini")
         return translate_text_gemini(text, target_language)
-
 
 def summarize_text(text, target_language="en"):
     if not text:
@@ -248,8 +234,7 @@ def summarize_text(text, target_language="en"):
         logging.error(f"Grok总结失败: {str(e)}, 尝试使用Gemini")
         return summarize_text_gemini(text, target_language)
 
-
-# Gemini fallback functions (unchanged)
+# Gemini fallback functions
 def translate_text_gemini(text, target_language="zh-CN"):
     if not text:
         return ""
@@ -260,7 +245,6 @@ def translate_text_gemini(text, target_language="zh-CN"):
     except Exception as e:
         logging.error(f"Gemini API 翻译失败: {str(e)}")
         return text
-
 
 def summarize_text_gemini(text, target_language="en"):
     if not text:
@@ -277,7 +261,6 @@ def summarize_text_gemini(text, target_language="en"):
     except Exception as e:
         logging.error(f"Gemini API 总结失败: {str(e)}")
         return "无法生成总结"
-
 
 # Email function with abstract added
 def send_email(articles, processed_articles):
@@ -316,8 +299,7 @@ def send_email(articles, processed_articles):
     except Exception as e:
         logging.error(f"❌ 邮件发送失败: {str(e)}")
 
-
-# Main function with async full-text fetching
+# Main function with async full-text fetching and debug logging
 def main():
     logging.info("🚀 开始执行...")
     conn = create_connection()
@@ -363,9 +345,14 @@ def main():
         send_email(new_articles, processed_articles)
     else:
         logging.info("❌ 没有新的文献需要发送")
+    
+    # 关闭数据库前检查文件
+    if os.path.exists(DATABASE_FILE):
+        logging.info(f"✅ 数据库文件准备上传: {DATABASE_FILE}, 大小: {os.path.getsize(DATABASE_FILE)} bytes")
+    else:
+        logging.error(f"❌ 数据库文件未找到: {DATABASE_FILE}")
     conn.close()
     logging.info("✅ 数据库连接已关闭")
-
 
 if __name__ == "__main__":
     main()
