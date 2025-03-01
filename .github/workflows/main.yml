@@ -4,7 +4,6 @@ on:
   schedule:
     - cron: '30 22 * * *' # Runs daily at 22:30 UTC (06:30 Beijing time)
   workflow_dispatch: # Allows manual triggering
-name: Run PubMed Summary Script
 
 jobs:
   run-script:
