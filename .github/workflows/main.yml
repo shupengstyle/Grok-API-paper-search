@@ -1,4 +1,4 @@
-name: PubMed Article Fetcher
+name: PubMed Article Fetcher Grok3_paper_research.py
 
 # 触发条件
 on:
@@ -30,29 +30,46 @@ jobs:
     steps:
       # 检出代码
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       # 设置 Python 环境
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.9' # 根据你的需求调整 Python 版本
+          python-version: '3.9' # 与你的脚本兼容的版本
 
       # 安装依赖
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install requests beautifulsoup4 biopython python-dotenv openai google-generativeai aiohttp tenacity sqlite3
+          pip install requests beautifulsoup4 biopython python-dotenv openai google-generativeai aiohttp tenacity
+
+      # 下载之前的数据库 artifact（如果存在）
+      - name: Download previous database artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: processed_articles_db
+          path: ./
+        continue-on-error: true # 如果没有之前的 artifact，继续执行（例如第一次运行）
+
+      # 确保数据库文件位置正确
+      - name: Move database to expected location
+        run: |
+          if [ -f "processed_articles.db" ]; then
+            echo "Previous database found, using it."
+          else
+            echo "No previous database found, starting fresh."
+          fi
 
       # 运行脚本
       - name: Run PubMed fetcher script
         run: |
-          python Grok3_paper_research.py  # 假设你的脚本文件名是 main.py
+          python Grok3_paper_research.py # 假设脚本名为 main.py
 
-      # 可选：上传数据库文件作为 artifact
+      # 上传更新后的数据库文件作为 artifact
       - name: Upload database artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: processed_articles_db
           path: processed_articles.db
-        if: always() # 即使失败也上传，方便调试
+        if: always() # 即使脚本失败也上传，便于调试
