@@ -5,6 +5,13 @@ on:
     - cron: '30 22 * * *' # Runs daily at 22:30 UTC (06:30 Beijing time)
   workflow_dispatch: # Allows manual triggering  Grok3_paper_research.py
   
+# 添加权限块
+permissions:
+  actions: read
+  contents: read
+  # 如果需要上传 artifact 到其他仓库，可能需要 write 权限
+  # contents: write
+
 jobs:
   run_summarizer:
     runs-on: ubuntu-latest
@@ -29,7 +36,9 @@ jobs:
         with:
           name: processed-articles-db
           path: ./
-        continue-on-error: true  # Allow workflow to continue if artifact doesn't exist
+        continue-on-error: true
+        # 添加 token
+        # token: ${{ secrets.GITHUB_TOKEN }}  # 尝试显式提供 token
 
       - name: Check if database exists
         id: check_db
@@ -61,4 +70,4 @@ jobs:
         with:
           name: processed-articles-db
           path: processed_articles.db
-          if-version-control: false  # Include untracked files
+          if-version-control: false
