@@ -12,6 +12,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Download database (if exists)
+        uses: actions/download-artifact@v4
+        with:
+          name: processed_articles_db
+          path: . # Important: Download to the current working directory
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
