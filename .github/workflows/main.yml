@@ -48,8 +48,9 @@ jobs:
         if: github.run_number > 1
         shell: bash
         run: |
+          echo "Checking database file before upload..."
           ls -l processed_articles.db # 检查文件是否存在和大小
-
+          pwd # 打印当前工作目录，以确认路径
       - name: Upload database (optional)  # 上传artifact
         if: github.run_number > 1
         uses: actions/upload-artifact@v4
