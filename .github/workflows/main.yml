@@ -3,8 +3,7 @@ name: PubMed Literature Summary to Email THA/TKA
 on:
   schedule:
     - cron: '30 22 * * *' # Runs daily at 22:30 UTC (06:30 Beijing time)
-  workflow_dispatch: # Allows manual triggering  Grok3_paper_research.py
-  
+  workflow_dispatch: # Allows manual triggering
 
 jobs:
   run-script:
@@ -24,21 +23,8 @@ jobs:
           pip install -r requirements.txt
         shell: bash
 
-      - name: Set environment variables
-        run: |
-          echo "PUBMED_API_KEY=${{ secrets.PUBMED_API_KEY }}" >> $GITHUB_ENV
-          echo "EMAIL_ADDRESS=${{ secrets.EMAIL_ADDRESS }}" >> $GITHUB_ENV
-          echo "EMAIL_PASSWORD=${{ secrets.EMAIL_PASSWORD }}" >> $GITHUB_ENV
-          echo "EMAIL_SMTP_SERVER=${{ secrets.EMAIL_SMTP_SERVER }}" >> $GITHUB_ENV
-          echo "EMAIL_SMTP_PORT=${{ secrets.EMAIL_SMTP_PORT }}" >> $GITHUB_ENV
-          echo "SEARCH_QUERY=${{ secrets.SEARCH_QUERY }}" >> $GITHUB_ENV
-          echo "MAX_RESULTS=${{ secrets.MAX_RESULTS }}" >> $GITHUB_ENV
-          echo "XAI_API_KEY=${{ secrets.XAI_API_KEY }}" >> $GITHUB_ENV
-          echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> $GITHUB_ENV
-          echo "SUMMARY_LANGUAGE=${{ secrets.SUMMARY_LANGUAGE }}" >> $GITHUB_ENV
-
       - name: Run script
-        run: python Grok3_paper_research.py # Replace your_script_name.py with the actual name of your python file
+        run: python Grok3_paper_research.py
         env:
           PUBMED_API_KEY: ${{ secrets.PUBMED_API_KEY }}
           EMAIL_ADDRESS: ${{ secrets.EMAIL_ADDRESS }}
