@@ -53,7 +53,7 @@ genai.configure(api_key=GEMINI_API_KEY)
 gemini_model = genai.GenerativeModel('gemini-pro')
 
 # Database configuration
-DATABASE_FILE = "processed_articles.db"
+DATABASE_FILE = os.path.join(os.getcwd(), "processed_articles.db") # 使用绝对路径
 DATA_RETENTION_DAYS = 30
 
 # Grok API call with retry
@@ -302,6 +302,17 @@ def send_email(articles, processed_articles):
 # Main function with async full-text fetching and debug logging
 def main():
     logging.info("🚀 开始执行...")
+
+    # 打印当前工作目录
+    current_directory = os.getcwd()
+    logging.info(f"当前工作目录: {current_directory}")
+
+    # 检查数据库文件是否存在
+    if os.path.exists(DATABASE_FILE):
+        logging.info(f"✅ 数据库文件已存在: {DATABASE_FILE}, 尝试加载...")
+    else:
+        logging.info(f"⚠️ 数据库文件不存在，尝试创建...")
+
     conn = create_connection()
     if conn is None:
         return
