@@ -5,22 +5,16 @@ on:
     - cron: '30 22 * * *' # Runs daily at 22:30 UTC (06:30 Beijing time)
   workflow_dispatch: # Allows manual triggering  Grok3_paper_research.py
   
-# 添加权限块
-permissions:
-  actions: read
-  contents: read
-  # 如果需要上传 artifact 到其他仓库，可能需要 write 权限
-  # contents: write
 
 jobs:
-  run_summarizer:
+  run-script:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.x'
 
@@ -28,30 +22,23 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install python-dotenv
+        shell: bash
 
-      - name: Download database artifact
-        id: download_db
-        uses: actions/download-artifact@v3
-        with:
-          name: processed-articles-db
-          path: ./
-        continue-on-error: true
-        # 添加 token
-        # token: ${{ secrets.GITHUB_TOKEN }}  # 尝试显式提供 token
-
-      - name: Check if database exists
-        id: check_db
+      - name: Set environment variables
         run: |
-          if [ -f processed_articles.db ] && [ "${{ steps.download_db.outcome }}" == "success" ]; then
-            echo "Database file found from artifact. Restoring..."
-            echo "DB_EXISTS=true" >> $GITHUB_OUTPUT
-          else
-            echo "Database file not found or download failed. Starting with a new database."
-            echo "DB_EXISTS=false" >> $GITHUB_OUTPUT
-          fi
+          echo "PUBMED_API_KEY=${{ secrets.PUBMED_API_KEY }}" >> $GITHUB_ENV
+          echo "EMAIL_ADDRESS=${{ secrets.EMAIL_ADDRESS }}" >> $GITHUB_ENV
+          echo "EMAIL_PASSWORD=${{ secrets.EMAIL_PASSWORD }}" >> $GITHUB_ENV
+          echo "EMAIL_SMTP_SERVER=${{ secrets.EMAIL_SMTP_SERVER }}" >> $GITHUB_ENV
+          echo "EMAIL_SMTP_PORT=${{ secrets.EMAIL_SMTP_PORT }}" >> $GITHUB_ENV
+          echo "SEARCH_QUERY=${{ secrets.SEARCH_QUERY }}" >> $GITHUB_ENV
+          echo "MAX_RESULTS=${{ secrets.MAX_RESULTS }}" >> $GITHUB_ENV
+          echo "XAI_API_KEY=${{ secrets.XAI_API_KEY }}" >> $GITHUB_ENV
+          echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> $GITHUB_ENV
+          echo "SUMMARY_LANGUAGE=${{ secrets.SUMMARY_LANGUAGE }}" >> $GITHUB_ENV
 
-      - name: Run summarizer script
+      - name: Run script
+        run: python Grok3_paper_research.py # Replace your_script_name.py with the actual name of your python file
         env:
           PUBMED_API_KEY: ${{ secrets.PUBMED_API_KEY }}
           EMAIL_ADDRESS: ${{ secrets.EMAIL_ADDRESS }}
@@ -63,11 +50,10 @@ jobs:
           XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           SUMMARY_LANGUAGE: ${{ secrets.SUMMARY_LANGUAGE }}
-        run: python Grok3_paper_research.py
 
-      - name: Upload database artifact
-        uses: actions/upload-artifact@v3
+      - name: Upload database (optional)
+        uses: actions/upload-artifact@v4
         with:
-          name: processed-articles-db
+          name: processed_articles_db
           path: processed_articles.db
-          if-version-control: false
+          if-no-files-found: error # Ensure artifact is uploaded even if no changes
