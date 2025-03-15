@@ -44,8 +44,27 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           SUMMARY_LANGUAGE: ${{ secrets.SUMMARY_LANGUAGE }}
 
-      - name: Upload database (optional)
+      - name: Check database file before upload (optional)
+        if: github.run_number > 1
+        run: |
+          ls -l processed_articles.db # 检查文件是否存在和大小
+        shell: bash
+
+      - name: Upload database (optional)  # 上传artifact
+        if: github.run_number > 1
         uses: actions/upload-artifact@v4
         with:
           name: processed_articles_db
           path: processed_articles.db
+    ```
+
+**调试步骤：**
+
+1.  将上述 YAML 文件保存到你的仓库。
+2.  手动触发 workflow 运行。
+3.  查看 workflow 运行日志。
+    *  确认 `Download database` 步骤在第一次运行时是否被跳过。
+    *  在 `Upload database` 步骤之前，检查 `Check database file before upload` 步骤的输出。 如果文件不存在，你需要检查你的 Python 脚本，找出数据库文件没有被创建的原因。
+    *  确认 `Upload database` 步骤是否成功完成。
+
+通过仔细检查这些步骤，你应该能够找到导致 Artifact 上传失败的原因，并解决这个问题。 关键是关注数据库文件是否存在，以及上传步骤是否正确配置。
