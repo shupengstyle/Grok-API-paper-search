@@ -1,56 +1,58 @@
-name: PubMed Literature Summary to Email THA/TKA
+name: PubMed Article Fetcher
+
+# 触发条件
 on:
+  push:
+    branches:
+      - main
   schedule:
-    - cron: '30 22 * * *' # Runs daily at 22:30 UTC (06:30 Beijing time)
-  workflow_dispatch: # Allows manual triggering
+    # 每天 UTC 时间 00:00 执行（相当于北京时间 08:00）
+    - cron: '0 0 * * *'
+  workflow_dispatch: # 允许手动触发
+
+# 环境变量
+env:
+  PUBMED_API_KEY: ${{ secrets.PUBMED_API_KEY }}
+  EMAIL_ADDRESS: ${{ secrets.EMAIL_ADDRESS }}
+  EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+  EMAIL_SMTP_SERVER: "smtp.yeah.net"
+  EMAIL_SMTP_PORT: "465"
+  SEARCH_QUERY: "hip knee replacement"
+  MAX_RESULTS: "2"
+  XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+  GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+  SUMMARY_LANGUAGE: "en"
+
 jobs:
-  run-script:
+  fetch-and-email:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Download database (if exists)
-        uses: actions/download-artifact@v4
-        with:
-          name: processed_articles_db
-          path: . # Important: Download to the current working directory
-        if: github.run_number > 1 # Skip on the first run
+      # 检出代码
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # 设置 Python 环境
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
-          python-version: '3.x'
+          python-version: '3.9' # 根据你的需求调整 Python 版本
+
+      # 安装依赖
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-        shell: bash
-      - name: Run script
-        run: python Grok3_paper_research.py
-        env:
-          PUBMED_API_KEY: ${{ secrets.PUBMED_API_KEY }}
-          EMAIL_ADDRESS: ${{ secrets.EMAIL_ADDRESS }}
-          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
-          EMAIL_SMTP_SERVER: ${{ secrets.EMAIL_SMTP_SERVER }}
-          EMAIL_SMTP_PORT: ${{ secrets.EMAIL_SMTP_PORT }}
-          SEARCH_QUERY: ${{ secrets.SEARCH_QUERY }}
-          MAX_RESULTS: ${{ secrets.MAX_RESULTS }}
-          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          SUMMARY_LANGUAGE: ${{ secrets.SUMMARY_LANGUAGE }}
-      - name: Create empty database file (if not exists)
-        if: github.run_number == 1
-        shell: bash
+          pip install requests beautifulsoup4 biopython python-dotenv openai google-generativeai aiohttp tenacity sqlite3
+
+      # 运行脚本
+      - name: Run PubMed fetcher script
         run: |
-          echo "Creating an empty database file..."
-          touch processed_articles.db
-      - name: Check database file before upload
-        shell: bash
-        run: |
-          echo "Checking database file before upload..."
-          ls -l processed_articles.db
-          pwd
-      - name: Upload database
-        uses: actions/upload-artifact@v4
+          python Grok3_paper_research.py  # 假设你的脚本文件名是 main.py
+
+      # 可选：上传数据库文件作为 artifact
+      - name: Upload database artifact
+        uses: actions/upload-artifact@v3
         with:
           name: processed_articles_db
           path: processed_articles.db
+        if: always() # 即使失败也上传，方便调试
