@@ -17,7 +17,7 @@ jobs:
         with:
           name: processed_articles_db
           path: . # Important: Download to the current working directory
-     if: github.run_number > 1 # Skip on the first run
+        if: github.run_number > 1 # Skip on the first run
 
       - name: Set up Python
         uses: actions/setup-python@v5
