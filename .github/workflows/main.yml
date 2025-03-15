@@ -3,8 +3,8 @@ name: PubMed Literature Summary to Email THA/TKA
 on:
   schedule:
     - cron: '30 22 * * *' # Runs daily at 22:30 UTC (06:30 Beijing time)
-  workflow_dispatch: # Allows manual triggering
-
+  workflow_dispatch: # Allows manual triggering  Grok3_paper_research.py
+  
 jobs:
   run_summarizer:
     runs-on: ubuntu-latest
@@ -24,19 +24,21 @@ jobs:
           pip install python-dotenv
 
       - name: Download database artifact
+        id: download_db
         uses: actions/download-artifact@v3
         with:
           name: processed-articles-db
           path: ./
+        continue-on-error: true  # Allow workflow to continue if artifact doesn't exist
 
       - name: Check if database exists
         id: check_db
         run: |
-          if [ -f processed_articles.db ]; then
+          if [ -f processed_articles.db ] && [ "${{ steps.download_db.outcome }}" == "success" ]; then
             echo "Database file found from artifact. Restoring..."
             echo "DB_EXISTS=true" >> $GITHUB_OUTPUT
           else
-            echo "Database file not found. Starting with a new database."
+            echo "Database file not found or download failed. Starting with a new database."
             echo "DB_EXISTS=false" >> $GITHUB_OUTPUT
           fi
 
