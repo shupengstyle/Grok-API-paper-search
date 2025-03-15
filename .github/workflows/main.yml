@@ -11,8 +11,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-        with:
-          fetch-depth: 0 # Required for correct diffing
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -25,15 +23,22 @@ jobs:
           pip install -r requirements.txt
           pip install python-dotenv
 
-      - name: Restore database
+      - name: Download database artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: processed-articles-db
+          path: ./
+
+      - name: Check if database exists
+        id: check_db
         run: |
-          # Check if the database file exists in the repository
           if [ -f processed_articles.db ]; then
-            echo "Database file found in the repository. Restoring..."
+            echo "Database file found from artifact. Restoring..."
+            echo "DB_EXISTS=true" >> $GITHUB_OUTPUT
           else
-            echo "Database file not found in the repository. Starting with a new database."
+            echo "Database file not found. Starting with a new database."
+            echo "DB_EXISTS=false" >> $GITHUB_OUTPUT
           fi
-          # No action needed here. The presence of the file is sufficient.
 
       - name: Run summarizer script
         env:
@@ -49,9 +54,9 @@ jobs:
           SUMMARY_LANGUAGE: ${{ secrets.SUMMARY_LANGUAGE }}
         run: python Grok3_paper_research.py
 
-      - name: Commit and push database
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "GitHub Actions Bot"
-          git add processed_articles.db
-          git diff --quiet --exit-code || (git commit -m "Update processed_articles.db" && git push)
+      - name: Upload database artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: processed-articles-db
+          path: processed_articles.db
+          if-version-control: false  # Include untracked files
