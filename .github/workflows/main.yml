@@ -42,7 +42,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install requests beautifulsoup4 biopython python-dotenv openai google-generativeai aiohttp tenacity
+          pip install -r requirements.txt
 
       # 下载之前的数据库 artifact（如果存在）
       - name: Download previous database artifact
